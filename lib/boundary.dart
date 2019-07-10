@@ -8,11 +8,14 @@ typedef BoundaryWidgetBuilder = Widget Function(
 class Boundary extends RenderObjectWidget {
   const Boundary({
     Key key,
-    @required this.builder,
-  })  : assert(builder != null),
+    @required this.fallbackBuilder,
+    @required this.child,
+  })  : assert(child != null),
+        assert(fallbackBuilder != null),
         super(key: key);
 
-  final BoundaryWidgetBuilder builder;
+  final Widget child;
+  final BoundaryWidgetBuilder fallbackBuilder;
 
   @override
   BoundaryElement createElement() => BoundaryElement(this);
@@ -21,6 +24,11 @@ class Boundary extends RenderObjectWidget {
   RenderBoundary createRenderObject(BuildContext context) => RenderBoundary();
 
   // updateRenderObject is redundant with the logic in the LayoutBuilderElement below.
+
+
+  Widget build(BuildContext context) {
+    return child;
+  }
 }
 
 class BoundaryElement extends RenderObjectElement {
@@ -78,14 +86,14 @@ class BoundaryElement extends RenderObjectElement {
   void _layout(BoxConstraints constraints) {
     owner.buildScope(this, () {
       Widget built;
-      if (widget.builder != null) {
-        try {
-          built = widget.builder(this, renderObject.exception);
-          debugWidgetBuilderValue(widget, built);
-        } catch (e, stack) {
-          built = ErrorWidget.builder(_debugReportException(
-              ErrorDescription('building $widget'), e, stack));
-        }
+      try {
+        built = renderObject.exception != null
+            ? widget.fallbackBuilder(this, renderObject.exception)
+            : widget.build(this);
+        debugWidgetBuilderValue(widget, built);
+      } catch (e, stack) {
+        built = ErrorWidget.builder(_debugReportException(
+            ErrorDescription('building $widget'), e, stack));
       }
       try {
         _child = updateChild(_child, built, null);
