@@ -5,6 +5,42 @@ import 'package:flutter/widgets.dart';
 typedef BoundaryWidgetBuilder = Widget Function(
     BuildContext context, dynamic error);
 
+Widget mockError(details) {
+  return _Builder(details);
+}
+
+class _Builder extends StatefulWidget {
+  _Builder(this.details);
+
+  final FlutterErrorDetails details;
+
+  @override
+  __BuilderState createState() => __BuilderState();
+}
+
+class __BuilderState extends State<_Builder> {
+  RenderBoundary boundary;
+
+  @override
+  Widget build(BuildContext context) {
+    boundary =
+        context.ancestorRenderObjectOfType(TypeMatcher<RenderBoundary>());
+    if (boundary is RenderBoundary) {
+      boundary.failure = widget.details;
+      boundary.markNeedsLayout();
+    }
+    return const SizedBox();
+  }
+
+  @override
+  void deactivate() {
+    if (boundary.attached) {
+      boundary.markNeedsLayout();
+    }
+    super.deactivate();
+  }
+}
+
 class Boundary extends RenderObjectWidget {
   const Boundary({
     Key key,
@@ -25,9 +61,22 @@ class Boundary extends RenderObjectWidget {
 
   // updateRenderObject is redundant with the logic in the LayoutBuilderElement below.
 
+  Widget _build(BoundaryElement context, dynamic error) {
+    if (error != null) {
+      context.errorWidget = fallbackBuilder(context, error);
+    }
 
-  Widget build(BuildContext context) {
-    return child;
+    final valid = Offstage(
+      offstage: error != null,
+      child: child,
+    );
+
+    return IndexedStack(
+      alignment: Alignment.center,
+      index: error != null ? 1 : 0,
+      children:
+          context.errorWidget != null ? [valid, context.errorWidget] : [valid],
+    );
   }
 }
 
@@ -41,6 +90,8 @@ class BoundaryElement extends RenderObjectElement {
   RenderBoundary get renderObject => super.renderObject;
 
   Element _child;
+
+  Widget errorWidget;
 
   @override
   void visitChildren(ElementVisitor visitor) {
@@ -87,9 +138,7 @@ class BoundaryElement extends RenderObjectElement {
     owner.buildScope(this, () {
       Widget built;
       try {
-        built = renderObject.exception != null
-            ? widget.fallbackBuilder(this, renderObject.exception)
-            : widget.build(this);
+        built = widget._build(this, renderObject.exception);
         debugWidgetBuilderValue(widget, built);
       } catch (e, stack) {
         built = ErrorWidget.builder(_debugReportException(
@@ -229,7 +278,7 @@ FlutterErrorDetails _debugReportException(
   final FlutterErrorDetails details = FlutterErrorDetails(
     exception: exception,
     stack: stack,
-    library: 'widgets library',
+    library: 'boundary library',
     context: context,
   );
   FlutterError.reportError(details);
