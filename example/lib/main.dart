@@ -14,10 +14,8 @@ class Home extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Boundary(
-      builder: (context, error) {
-        if (error) return Oops();
-        return Counter();
-      },
+      fallbackBuilder: (_, __) => Oops(),
+      child: Counter(),
     );
   }
 }

@@ -5,7 +5,8 @@ import 'package:flutter/widgets.dart';
 typedef BoundaryWidgetBuilder = Widget Function(
     BuildContext context, dynamic error);
 
-Widget mockError(details) {
+Widget mockError(FlutterErrorDetails details) {
+  print('errored ${details.exception}');
   return _Builder(details);
 }
 
@@ -27,7 +28,16 @@ class __BuilderState extends State<_Builder> {
         context.ancestorRenderObjectOfType(TypeMatcher<RenderBoundary>());
     if (boundary is RenderBoundary) {
       boundary.failure = widget.details;
+      print('markneedslayout $boundary');
       boundary.markNeedsLayout();
+    }
+
+    for (var b = boundary; b != null;) {
+      b = b.element.ancestorRenderObjectOfType(TypeMatcher<RenderBoundary>());
+      if (b != null) {
+        print('markneedslayout $b');
+        b.markNeedsLayout();
+      }
     }
     return const SizedBox();
   }
@@ -41,7 +51,7 @@ class __BuilderState extends State<_Builder> {
   }
 }
 
-class Boundary extends RenderObjectWidget {
+class Boundary<T> extends RenderObjectWidget {
   const Boundary({
     Key key,
     @required this.fallbackBuilder,
@@ -54,14 +64,15 @@ class Boundary extends RenderObjectWidget {
   final BoundaryWidgetBuilder fallbackBuilder;
 
   @override
-  BoundaryElement createElement() => BoundaryElement(this);
+  _BoundaryElement createElement() => _BoundaryElement(this);
 
   @override
-  RenderBoundary createRenderObject(BuildContext context) => RenderBoundary();
+  RenderBoundary<T> createRenderObject(BuildContext context) =>
+      RenderBoundary();
 
   // updateRenderObject is redundant with the logic in the LayoutBuilderElement below.
 
-  Widget _build(BoundaryElement context, dynamic error) {
+  Widget _build(_BoundaryElement context, dynamic error) {
     if (error != null) {
       context.errorWidget = fallbackBuilder(context, error);
     }
@@ -80,8 +91,8 @@ class Boundary extends RenderObjectWidget {
   }
 }
 
-class BoundaryElement extends RenderObjectElement {
-  BoundaryElement(Boundary widget) : super(widget);
+class _BoundaryElement extends RenderObjectElement {
+  _BoundaryElement(Boundary widget) : super(widget);
 
   @override
   Boundary get widget => super.widget;
@@ -107,6 +118,7 @@ class BoundaryElement extends RenderObjectElement {
   @override
   void mount(Element parent, dynamic newSlot) {
     super.mount(parent, newSlot); // Creates the renderObject.
+    renderObject.element = this;
     renderObject.callback = _layout;
   }
 
@@ -179,7 +191,7 @@ class BoundaryElement extends RenderObjectElement {
   }
 }
 
-class RenderBoundary extends RenderBox
+class RenderBoundary<T> extends RenderBox
     with RenderObjectWithChildMixin<RenderBox> {
   RenderBoundary({
     LayoutCallback<BoxConstraints> callback,
@@ -232,9 +244,21 @@ class RenderBoundary extends RenderBox
 
   FlutterErrorDetails failure;
   dynamic exception;
+  _BoundaryElement element;
 
   @override
   void performLayout() {
+    print('render $this');
+    final boundary =
+        element.ancestorRenderObjectOfType(TypeMatcher<RenderBoundary>());
+
+    print('first boundary $boundary');
+    // if (boundary is RenderBoundary) {
+    //   boundary.failure = failure;
+    //   boundary.markNeedsLayout();
+    //   // throw failure.exception;
+    // }
+
     assert(callback != null);
     if (failure != null) {
       exception = failure.exception;
@@ -248,7 +272,19 @@ class RenderBoundary extends RenderBox
         invokeLayoutCallback(callback);
       }
     }
-    assert(failure == null);
+    if (failure != null) {
+      print('failure $this');
+      final boundary =
+          element.ancestorRenderObjectOfType(TypeMatcher<RenderBoundary>());
+
+      print('boundary $boundary');
+      if (boundary is RenderBoundary) {
+        boundary.failure = failure;
+        boundary.markNeedsLayout();
+        boundary.element.markNeedsBuild();
+        throw failure.exception;
+      }
+    }
     failure = null;
     exception = null;
     if (child != null) {

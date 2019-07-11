@@ -17,7 +17,7 @@ FlutterExceptionHandler mockFlutterError(FlutterExceptionHandler builder) {
 }
 
 void main() {
-  testWidgets('description', (tester) async {
+  testWidgets("fallback isn't called if child succeeds", (tester) async {
     final key = GlobalKey();
     final builder = BuilderMock();
 
@@ -216,10 +216,55 @@ void main() {
     expect(find.text('1'), findsOneWidget);
   });
 
-  test(
+  testWidgets(
       "fallbackBuilder can throw to propagate the exception to other boundaries",
-      () {},
-      skip: true);
+      (tester) async {
+    var a = mockFlutterError(null), b = mockErrorWidget(mockError);
+
+    final builder = BuilderMock();
+    final builder2 = BuilderMock();
+
+    await tester.pumpWidget(Boundary<int>(
+      fallbackBuilder: (c, err) {
+        print('helo');
+        builder2(c, err);
+        return Container();
+      },
+      child: Boundary<String>(
+        fallbackBuilder: (c, err) {
+          builder(c, err);
+          throw err;
+        },
+        child: Builder(builder: (_) => throw 42),
+      ),
+    ));
+
+    FlutterError.onError = a;
+    ErrorWidget.builder = b;
+
+    verifyInOrder([
+      builder(any, 42),
+      builder2(any, 42),
+    ]);
+    verifyNoMoreInteractions(builder);
+    verifyNoMoreInteractions(builder2);
+  }, skip: true);
+  testWidgets("test", (tester) async {
+    var a = mockFlutterError(null), b = mockErrorWidget(mockError);
+
+    await tester.pumpWidget(Boundary<String>(
+      fallbackBuilder: (c, err) =>
+          Text(err.toString(), textDirection: TextDirection.ltr),
+      child: RepaintBoundary(
+        child: Center(child: Builder(builder: (_) => throw 42)),
+      ),
+    ));
+
+    FlutterError.onError = a;
+    ErrorWidget.builder = b;
+
+    expect(find.text('42'), findsOneWidget);
+  });
   test("child doesn't rebuild if didn't change and no error", () {},
       skip: true);
   test("child does rebuild if didn't change but error", () {}, skip: true);
