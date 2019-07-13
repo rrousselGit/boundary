@@ -34,6 +34,7 @@ class Home extends StatelessWidget {
           child: ValueListenableBuilder<int>(
             valueListenable: notifier,
             builder: (_, value, __) {
+              print('builder');
               if (value == 1) throw 42;
               return Text(value.toString(), textDirection: TextDirection.ltr);
             },

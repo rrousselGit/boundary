@@ -5,49 +5,114 @@ import 'package:flutter/widgets.dart';
 typedef BoundaryWidgetBuilder = Widget Function(
     BuildContext context, dynamic error);
 
+class InheritedBoundary extends InheritedWidget {
+  InheritedBoundary({Key key, this.element, Widget child})
+      : super(key: key, child: child);
+
+  static BoundaryElement of(BuildContext context) {
+    var widget = context
+        .ancestorInheritedElementForWidgetOfExactType(InheritedBoundary)
+        ?.widget;
+
+    if (widget is InheritedBoundary) {
+      return widget.element;
+    }
+    return null;
+  }
+
+  final BoundaryElement element;
+
+  @override
+  bool updateShouldNotify(InheritedBoundary oldWidget) {
+    return oldWidget.element != element;
+  }
+}
+
 Widget mockError(FlutterErrorDetails details) {
   return _Builder(details);
 }
 
-class _Builder extends StatefulWidget {
+class _Builder extends StatelessWidget {
   _Builder(this.details);
 
   final FlutterErrorDetails details;
 
   @override
-  __BuilderState createState() => __BuilderState();
-}
-
-class __BuilderState extends State<_Builder> {
-  RenderBoundary boundary;
+  _BuilderElement createElement() => _BuilderElement(this);
 
   @override
-  Widget build(BuildContext context) {
-    boundary =
-        context.ancestorRenderObjectOfType(TypeMatcher<RenderBoundary>());
-    if (boundary is RenderBoundary) {
-      boundary.failure = widget.details;
-    }
+  Widget build(BuildContext context) => const SizedBox();
+}
 
-    for (var b = boundary; b != null;) {
-      b = b.element.ancestorRenderObjectOfType(TypeMatcher<RenderBoundary>());
-      if (b != null) {
-        b.markNeedsLayout();
-      }
+class _BuilderElement extends StatelessElement {
+  _BuilderElement(_Builder widget) : super(widget);
+
+  @override
+  _Builder get widget => super.widget;
+
+  BoundaryElement boundary;
+
+  @override
+  Element updateChild(Element child, Widget newWidget, newSlot) {
+    final res = super.updateChild(child, newWidget, newSlot);
+
+    boundary = InheritedBoundary.of(this);
+    if (boundary != null) {
+      boundary.markSubtreeFailed(widget.details);
     }
-    return const SizedBox();
+    return res;
   }
 
   @override
   void deactivate() {
-    if (boundary.attached) {
-      boundary.markNeedsLayout();
+    if (boundary.activated) {
+      boundary.markSubtreeFailed(null);
     }
     super.deactivate();
   }
 }
 
-class Boundary<T> extends RenderObjectWidget {
+class _Internal extends StatelessWidget {
+  const _Internal(
+      {Key key, this.element, this.child, this.fallbackBuilder, this.exception})
+      : super(key: key);
+
+  final BoundaryElement element;
+  final Widget child;
+  final BoundaryWidgetBuilder fallbackBuilder;
+  final dynamic exception;
+
+  @override
+  Widget build(BuildContext context) {
+    if (element.propagating && !element.startPropa) {
+      return element.cache;
+    }
+
+    if (exception != null) {
+      element.errorWidget = InheritedBoundary(
+        element: InheritedBoundary.of(context),
+        child: fallbackBuilder(element, exception),
+      );
+    }
+
+    final valid = Offstage(
+      offstage: exception != null,
+      child: child,
+    );
+
+    return element.cache = InheritedBoundary(
+      element: element,
+      child: Stack(
+        alignment: Alignment.center,
+        children: element.errorWidget != null
+            ? [valid, element.errorWidget]
+            : [valid],
+      ),
+    );
+  }
+}
+
+class Boundary<T> extends StatelessWidget {
   const Boundary({
     Key key,
     @required this.fallbackBuilder,
@@ -60,279 +125,92 @@ class Boundary<T> extends RenderObjectWidget {
   final BoundaryWidgetBuilder fallbackBuilder;
 
   @override
-  _BoundaryElement createElement() => _BoundaryElement(this);
-
-  @override
-  RenderBoundary<T> createRenderObject(BuildContext context) =>
-      RenderBoundary();
+  BoundaryElement createElement() => BoundaryElement(this);
 
   // updateRenderObject is redundant with the logic in the LayoutBuilderElement below.
 
-  Widget _build(_BoundaryElement context, dynamic error) {
-    if (context.propagating && !context.startPropa) {
-      return context.cache;
-    }
-
-    if (error != null) {
-      context.errorWidget = fallbackBuilder(context, error);
-    }
-
-    final valid = Offstage(
-      offstage: error != null,
+  Widget build(BuildContext context) {
+    return _Internal(
       child: child,
-    );
-
-    return context.cache = IndexedStack(
-      alignment: Alignment.center,
-      index: error != null ? 1 : 0,
-      children:
-          context.errorWidget != null ? [valid, context.errorWidget] : [valid],
+      element: context as BoundaryElement,
+      fallbackBuilder: fallbackBuilder,
     );
   }
 }
 
-class _BoundaryElement extends RenderObjectElement {
-  _BoundaryElement(Boundary widget) : super(widget);
+class BoundaryElement extends StatelessElement {
+  BoundaryElement(Boundary widget) : super(widget);
 
   @override
   Boundary get widget => super.widget;
 
-  @override
-  RenderBoundary get renderObject => super.renderObject;
-
-  Element _child;
   Widget errorWidget;
   bool propagating = false;
   bool startPropa = false;
   Widget cache;
+  dynamic error;
+  FlutterErrorDetails failure;
+  bool isBuilding = false;
+  bool activated = false;
+
+  Element _child;
+  dynamic _slot;
 
   @override
-  void visitChildren(ElementVisitor visitor) {
-    if (_child != null) visitor(_child);
-  }
-
-  @override
-  void forgetChild(Element child) {
-    assert(child == _child);
-    _child = null;
-  }
-
-  @override
-  void mount(Element parent, dynamic newSlot) {
-    super.mount(parent, newSlot); // Creates the renderObject.
-    renderObject.element = this;
-    renderObject.callback = _layout;
-  }
-
-  @override
-  void update(Boundary newWidget) {
-    assert(widget != newWidget);
-    super.update(newWidget);
-    assert(widget == newWidget);
-    renderObject.callback = _layout;
-    renderObject.markNeedsLayout();
+  Element updateChild(Element child, Widget newWidget, newSlot) {
+    _child ??= child;
+    _slot = newSlot;
+    return _child = super.updateChild(child, newWidget, newSlot);
   }
 
   @override
   void performRebuild() {
-    // This gets called if markNeedsBuild() is called on us.
-    // That might happen if, e.g., our builder uses Inherited widgets.
-    renderObject.markNeedsLayout();
-    super
-        .performRebuild(); // Calls widget.updateRenderObject (a no-op in this case).
-  }
-
-  @override
-  void unmount() {
-    renderObject.callback = null;
-    super.unmount();
-  }
-
-  void _layout(BoxConstraints constraints) {
-    owner.buildScope(this, () {
-      Widget built;
-      try {
-        built = widget._build(this, renderObject.exception);
-        debugWidgetBuilderValue(widget, built);
-      } catch (e, stack) {
-        built = ErrorWidget.builder(_debugReportException(
-            ErrorDescription('building $widget'), e, stack));
-      }
-      try {
-        _child = updateChild(_child, built, null);
-        assert(_child != null);
-      } catch (e, stack) {
-        built = ErrorWidget.builder(_debugReportException(
-            ErrorDescription('building $widget'), e, stack));
-        _child = updateChild(null, built, slot);
-      }
-    });
-  }
-
-  @override
-  void insertChildRenderObject(RenderObject child, dynamic slot) {
-    final RenderObjectWithChildMixin<RenderObject> renderObject =
-        this.renderObject;
-    assert(slot == null);
-    assert(renderObject.debugValidateChild(child));
-    renderObject.child = child;
-    assert(renderObject == this.renderObject);
-  }
-
-  @override
-  void moveChildRenderObject(RenderObject child, dynamic slot) {
-    assert(false);
-  }
-
-  @override
-  void removeChildRenderObject(RenderObject child) {
-    final RenderBoundary renderObject = this.renderObject;
-    assert(renderObject.child == child);
-    renderObject.child = null;
-    assert(renderObject == this.renderObject);
-  }
-}
-
-class RenderBoundary<T> extends RenderBox
-    with RenderObjectWithChildMixin<RenderBox> {
-  RenderBoundary({
-    LayoutCallback<BoxConstraints> callback,
-  }) : _callback = callback;
-
-  @override
-  bool test = true;
-  @override
-  Type get type => T;
-
-  LayoutCallback<BoxConstraints> get callback => _callback;
-  LayoutCallback<BoxConstraints> _callback;
-  set callback(LayoutCallback<BoxConstraints> value) {
-    if (value == _callback) return;
-    _callback = value;
-    markNeedsLayout();
-  }
-
-  bool _debugThrowIfNotCheckingIntrinsics() {
-    assert(() {
-      if (!RenderObject.debugCheckingIntrinsics) {
-        throw FlutterError(
-            'LayoutBuilder does not support returning intrinsic dimensions.\n'
-            'Calculating the intrinsic dimensions would require running the layout '
-            'callback speculatively, which might mutate the live render object tree.');
-      }
-      return true;
-    }());
-    return true;
-  }
-
-  @override
-  double computeMinIntrinsicWidth(double height) {
-    assert(_debugThrowIfNotCheckingIntrinsics());
-    return 0.0;
-  }
-
-  @override
-  double computeMaxIntrinsicWidth(double height) {
-    assert(_debugThrowIfNotCheckingIntrinsics());
-    return 0.0;
-  }
-
-  @override
-  double computeMinIntrinsicHeight(double width) {
-    assert(_debugThrowIfNotCheckingIntrinsics());
-    return 0.0;
-  }
-
-  @override
-  double computeMaxIntrinsicHeight(double width) {
-    assert(_debugThrowIfNotCheckingIntrinsics());
-    return 0.0;
-  }
-
-  FlutterErrorDetails _failure;
-  FlutterErrorDetails get failure => _failure;
-  set failure(FlutterErrorDetails failure) {
-    _failure = failure;
-    markNeedsLayout();
-  }
-
-  dynamic exception;
-  _BoundaryElement element;
-
-  @override
-  void performLayout() {
-    assert(callback != null);
-    final _boundary =
-        element.ancestorRenderObjectOfType(TypeMatcher<RenderBoundary>());
-
-    if (_boundary is RenderBoundary) {
-      element.propagating = _boundary.element.propagating;
-    }
+    isBuilding = true;
+    failure = null;
+    super.performRebuild();
+    isBuilding = false;
     if (failure != null) {
-      exception = failure.exception;
-      _failure = null;
-      invokeLayoutCallback(callback);
-    } else {
-      invokeLayoutCallback(callback);
-      if (failure != null) {
-        exception = failure.exception;
-        _failure = null;
-        invokeLayoutCallback(callback);
-      }
-    }
-    if (failure != null) {
-      if (_boundary is RenderBoundary) {
-        RenderBoundary boundary = _boundary;
-        boundary._failure = failure;
-      }
-    }
-    _failure = null;
-    exception = null;
-
-    if (child != null) {
-      child.layout(constraints, parentUsesSize: true);
-      if (failure != null) {
-        exception = failure.exception;
-        _failure = null;
-        element.propagating = true;
-        element.startPropa = true;
-        try {
-          invokeLayoutCallback(callback);
-          child.layout(constraints, parentUsesSize: true);
-        } catch (err) {
-          element.startPropa = false;
-          element.propagating = false;
-        }
-        assert(_failure != null);
-      }
-      size = constraints.constrain(child.size);
-    } else {
-      size = constraints.biggest;
+      final exception = failure.exception;
+      failure = null;
+      rebuildWithError(exception);
     }
   }
 
   @override
-  bool hitTestChildren(BoxHitTestResult result, {Offset position}) {
-    return child?.hitTest(result, position: position) ?? false;
+  void mount(Element parent, newSlot) {
+    super.mount(parent, newSlot);
+    activated = true;
   }
 
   @override
-  void paint(PaintingContext context, Offset offset) {
-    if (child != null) context.paintChild(child, offset);
+  void activate() {
+    super.activate();
+    activated = true;
   }
-}
 
-FlutterErrorDetails _debugReportException(
-  DiagnosticsNode context,
-  dynamic exception,
-  StackTrace stack,
-) {
-  final FlutterErrorDetails details = FlutterErrorDetails(
-    exception: exception,
-    stack: stack,
-    library: 'boundary library',
-    context: context,
-  );
-  FlutterError.reportError(details);
-  return details;
+  @override
+  void deactivate() {
+    activated = false;
+    super.deactivate();
+  }
+
+  void markSubtreeFailed(FlutterErrorDetails failure) {
+    this.failure = failure;
+    if (!isBuilding) {
+      rebuildWithError(failure?.exception);
+    }
+  }
+
+  void rebuildWithError(dynamic exception) {
+    updateChild(
+      _child,
+      _Internal(
+        element: this,
+        fallbackBuilder: widget.fallbackBuilder,
+        exception: exception,
+        child: widget.child,
+      ),
+      _slot,
+    );
+  }
 }
