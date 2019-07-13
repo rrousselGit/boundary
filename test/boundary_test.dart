@@ -84,10 +84,7 @@ void main() {
     verify(builder(argThat(isNotNull), 42));
     verifyNoMoreInteractions(builder);
   });
-  testWidgets(
-      'propagated error when rebuild successfuly correctly hides fallback widget',
-      (_) async {},
-      skip: true);
+
   testWidgets('late exception', (tester) async {
     var a = mockFlutterError(null), b = mockErrorWidget(mockError);
 
@@ -205,22 +202,7 @@ void main() {
     verifyNoMoreInteractions(builder);
     verifyNoMoreInteractions(builder2);
   });
-  testWidgets("test", (tester) async {
-    var a = mockFlutterError(null), b = mockErrorWidget(mockError);
 
-    await tester.pumpWidget(Boundary<String>(
-      fallbackBuilder: (c, err) =>
-          Text(err.toString(), textDirection: TextDirection.ltr),
-      child: RepaintBoundary(
-        child: Center(child: Builder(builder: (_) => throw 42)),
-      ),
-    ));
-
-    FlutterError.onError = a;
-    ErrorWidget.builder = b;
-
-    expect(find.text('42'), findsOneWidget);
-  });
   testWidgets("late propagation", (tester) async {
     var a = mockFlutterError(null), b = mockErrorWidget(mockError);
 
@@ -286,6 +268,56 @@ void main() {
 
     expect(find.text('2'), findsOneWidget);
   });
+
+  testWidgets(
+      'propagated error when rebuild successfuly correctly hides fallback widget',
+      (tester) async {
+    var a = mockFlutterError(null), b = mockErrorWidget(mockError);
+
+    final builder = BuilderMock();
+    final builder2 = BuilderMock();
+    final notifier = ValueNotifier(0);
+
+    await tester.pumpWidget(Boundary<int>(
+      fallbackBuilder: (c, err) {
+        builder2(c, err);
+        return Text('fallback', textDirection: TextDirection.ltr);
+      },
+      child: Boundary<String>(
+        fallbackBuilder: (c, err) {
+          builder(c, err);
+          throw err;
+        },
+        child: ValueListenableBuilder<int>(
+          valueListenable: notifier,
+          builder: (_, value, __) {
+            if (value == 0) throw 42;
+            return Text(value.toString(), textDirection: TextDirection.ltr);
+          },
+        ),
+      ),
+    ));
+
+    FlutterError.onError = a;
+    ErrorWidget.builder = b;
+
+    clearInteractions(builder);
+    clearInteractions(builder2);
+    expect(find.text('fallback'), findsOneWidget);
+
+    notifier.value++;
+    mockFlutterError(null);
+    mockErrorWidget(mockError);
+    await tester.pump();
+
+    FlutterError.onError = a;
+    ErrorWidget.builder = b;
+    verifyNoMoreInteractions(builder);
+    verifyNoMoreInteractions(builder2);
+
+    expect(find.text('1'), findsOneWidget);
+  });
+
   testWidgets("test", (tester) async {
     var a = mockFlutterError(null), b = mockErrorWidget(mockError);
 
@@ -302,8 +334,30 @@ void main() {
 
     expect(find.text('42'), findsOneWidget);
   });
-  test("child doesn't rebuild if didn't change and no error", () {},
-      skip: true);
+  testWidgets("child doesn't rebuild if didn't change and no error",
+      (tester) async {
+    int buildCount = 0;
+    final child = Builder(builder: (_) {
+      buildCount++;
+      return Container();
+    });
+
+    await tester.pumpWidget(
+      Boundary<String>(
+        fallbackBuilder: (_, __) => null,
+        child: child,
+      ),
+    );
+
+    await tester.pumpWidget(
+      Boundary<String>(
+        fallbackBuilder: (_, __) => null,
+        child: child,
+      ),
+    );
+
+    expect(buildCount, equals(1));
+  });
   test("child does rebuild if didn't change but error", () {}, skip: true);
 }
 

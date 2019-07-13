@@ -90,10 +90,13 @@ class _Internal extends StatelessWidget {
     }
 
     if (exception != null) {
-        element.errorWidget = InheritedBoundary(
-          element: InheritedBoundary.of(context),
-          child: Builder(builder: (context) => fallbackBuilder(context, exception)),
-        );
+      element.errorWidget = InheritedBoundary(
+        element: InheritedBoundary.of(context),
+        child:
+            Builder(builder: (context) => fallbackBuilder(context, exception)),
+      );
+    } else {
+      element.errorWidget = null;
     }
 
     final valid = Offstage(
