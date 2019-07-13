@@ -51,6 +51,7 @@ class _BuilderElement extends StatelessElement {
   _Builder get widget => super.widget;
 
   BoundaryElement boundary;
+  BoundaryElement didCatch;
 
   @override
   Element updateChild(Element child, Widget newWidget, newSlot) {
@@ -89,10 +90,10 @@ class _Internal extends StatelessWidget {
     }
 
     if (exception != null) {
-      element.errorWidget = InheritedBoundary(
-        element: InheritedBoundary.of(context),
-        child: fallbackBuilder(element, exception),
-      );
+        element.errorWidget = InheritedBoundary(
+          element: InheritedBoundary.of(context),
+          child: Builder(builder: (context) => fallbackBuilder(context, exception)),
+        );
     }
 
     final valid = Offstage(

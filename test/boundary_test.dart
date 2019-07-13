@@ -2,6 +2,7 @@ import 'package:boundary/boundary.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart' as prefix0;
 import 'package:mockito/mockito.dart';
 
 ErrorWidgetBuilder mockErrorWidget(ErrorWidgetBuilder builder) {
@@ -36,11 +37,9 @@ void main() {
     final b = mockErrorWidget(mockError);
 
     final builder = BuilderMock();
-    final key = GlobalKey();
 
     await tester.pumpWidget(
       Boundary(
-        key: key,
         fallbackBuilder: (c, e) {
           builder(c, e);
           return Text(e.toString(), textDirection: TextDirection.ltr);
@@ -56,7 +55,7 @@ void main() {
 
     expect(find.text('42'), findsOneWidget);
 
-    verify(builder(key.currentContext, 42)).called(1);
+    verify(builder(argThat(isNotNull), 42)).called(1);
     verifyNoMoreInteractions(builder);
   });
   testWidgets('nested exception', (tester) async {
@@ -64,11 +63,9 @@ void main() {
     final b = mockErrorWidget(mockError);
 
     final builder = BuilderMock();
-    final key = GlobalKey();
 
     await tester.pumpWidget(
       Boundary(
-        key: key,
         fallbackBuilder: (c, e) {
           builder(c, e);
           return Text(e.toString(), textDirection: TextDirection.ltr);
@@ -84,19 +81,21 @@ void main() {
 
     expect(find.text('42'), findsOneWidget);
 
-    verify(builder(key.currentContext, 42));
+    verify(builder(argThat(isNotNull), 42));
     verifyNoMoreInteractions(builder);
   });
+  testWidgets(
+      'propagated error when rebuild successfuly correctly hides fallback widget',
+      (_) async {},
+      skip: true);
   testWidgets('late exception', (tester) async {
     var a = mockFlutterError(null), b = mockErrorWidget(mockError);
 
     final notifier = ValueNotifier(0);
     final builder = BuilderMock();
-    final key = GlobalKey();
 
     await tester.pumpWidget(
       Boundary(
-        key: key,
         fallbackBuilder: (c, e) {
           builder(c, e);
           return Text(e.toString(), textDirection: TextDirection.ltr);
@@ -126,67 +125,21 @@ void main() {
     FlutterError.onError = a;
     ErrorWidget.builder = b;
 
-    verify(builder(key.currentContext, 42)).called(1);
+    verify(builder(argThat(isNotNull), 42)).called(1);
     verifyNoMoreInteractions(builder);
 
     expect(find.text('42'), findsOneWidget);
   });
 
-  testWidgets('late exception', (tester) async {
-    var a = mockFlutterError(null), b = mockErrorWidget(mockError);
-
-    final notifier = ValueNotifier(0);
-    final builder = BuilderMock();
-    final key = GlobalKey();
-
-    await tester.pumpWidget(
-      Boundary(
-        key: key,
-        fallbackBuilder: (c, e) {
-          builder(c, e);
-          return Text(e.toString(), textDirection: TextDirection.ltr);
-        },
-        child: ValueListenableBuilder(
-          valueListenable: notifier,
-          builder: (_, value, __) {
-            if (value == 1) throw 42;
-            return Text(value.toString(), textDirection: TextDirection.ltr);
-          },
-        ),
-      ),
-    );
-
-    FlutterError.onError = a;
-    ErrorWidget.builder = b;
-
-    expect(find.text('0'), findsOneWidget);
-    verifyZeroInteractions(builder);
-
-    mockFlutterError(null);
-    mockErrorWidget(mockError);
-
-    notifier.value++;
-    await tester.pump();
-
-    FlutterError.onError = a;
-    ErrorWidget.builder = b;
-
-    verify(builder(key.currentContext, 42)).called(1);
-    verifyNoMoreInteractions(builder);
-
-    expect(find.text('42'), findsOneWidget);
-  });
   testWidgets('child rebuilding after an error stops showing fallback',
       (tester) async {
     var a = mockFlutterError(null), b = mockErrorWidget(mockError);
 
     final notifier = ValueNotifier(0);
     final builder = BuilderMock();
-    final key = GlobalKey();
 
     await tester.pumpWidget(
       Boundary(
-        key: key,
         fallbackBuilder: (c, e) {
           builder(c, e);
           return Text(e.toString(), textDirection: TextDirection.ltr);
@@ -312,7 +265,7 @@ void main() {
     ErrorWidget.builder = b;
 
     expect(find.text('0'), findsNothing);
-    expect(find.text('fallback'), findsNothing);
+    expect(find.text('fallback'), findsOneWidget);
 
     verifyInOrder([
       builder(any, 42),
