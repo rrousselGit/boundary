@@ -6,7 +6,6 @@ typedef BoundaryWidgetBuilder = Widget Function(
     BuildContext context, dynamic error);
 
 Widget mockError(FlutterErrorDetails details) {
-  print('errored ${details.exception}');
   return _Builder(details);
 }
 
@@ -28,14 +27,11 @@ class __BuilderState extends State<_Builder> {
         context.ancestorRenderObjectOfType(TypeMatcher<RenderBoundary>());
     if (boundary is RenderBoundary) {
       boundary.failure = widget.details;
-      print('markneedslayout $boundary');
-      boundary.markNeedsLayout();
     }
 
     for (var b = boundary; b != null;) {
       b = b.element.ancestorRenderObjectOfType(TypeMatcher<RenderBoundary>());
       if (b != null) {
-        print('markneedslayout $b');
         b.markNeedsLayout();
       }
     }
@@ -73,6 +69,10 @@ class Boundary<T> extends RenderObjectWidget {
   // updateRenderObject is redundant with the logic in the LayoutBuilderElement below.
 
   Widget _build(_BoundaryElement context, dynamic error) {
+    if (context.propagating && !context.startPropa) {
+      return context.cache;
+    }
+
     if (error != null) {
       context.errorWidget = fallbackBuilder(context, error);
     }
@@ -82,7 +82,7 @@ class Boundary<T> extends RenderObjectWidget {
       child: child,
     );
 
-    return IndexedStack(
+    return context.cache = IndexedStack(
       alignment: Alignment.center,
       index: error != null ? 1 : 0,
       children:
@@ -101,8 +101,10 @@ class _BoundaryElement extends RenderObjectElement {
   RenderBoundary get renderObject => super.renderObject;
 
   Element _child;
-
   Widget errorWidget;
+  bool propagating = false;
+  bool startPropa = false;
+  Widget cache;
 
   @override
   void visitChildren(ElementVisitor visitor) {
@@ -197,6 +199,11 @@ class RenderBoundary<T> extends RenderBox
     LayoutCallback<BoxConstraints> callback,
   }) : _callback = callback;
 
+  @override
+  bool test = true;
+  @override
+  Type get type => T;
+
   LayoutCallback<BoxConstraints> get callback => _callback;
   LayoutCallback<BoxConstraints> _callback;
   set callback(LayoutCallback<BoxConstraints> value) {
@@ -242,53 +249,62 @@ class RenderBoundary<T> extends RenderBox
     return 0.0;
   }
 
-  FlutterErrorDetails failure;
+  FlutterErrorDetails _failure;
+  FlutterErrorDetails get failure => _failure;
+  set failure(FlutterErrorDetails failure) {
+    _failure = failure;
+    markNeedsLayout();
+  }
+
   dynamic exception;
   _BoundaryElement element;
 
   @override
   void performLayout() {
-    print('render $this');
-    final boundary =
+    assert(callback != null);
+    final _boundary =
         element.ancestorRenderObjectOfType(TypeMatcher<RenderBoundary>());
 
-    print('first boundary $boundary');
-    // if (boundary is RenderBoundary) {
-    //   boundary.failure = failure;
-    //   boundary.markNeedsLayout();
-    //   // throw failure.exception;
-    // }
-
-    assert(callback != null);
+    if (_boundary is RenderBoundary) {
+      element.propagating = _boundary.element.propagating;
+    }
     if (failure != null) {
       exception = failure.exception;
-      failure = null;
+      _failure = null;
       invokeLayoutCallback(callback);
     } else {
       invokeLayoutCallback(callback);
       if (failure != null) {
         exception = failure.exception;
-        failure = null;
+        _failure = null;
         invokeLayoutCallback(callback);
       }
     }
     if (failure != null) {
-      print('failure $this');
-      final boundary =
-          element.ancestorRenderObjectOfType(TypeMatcher<RenderBoundary>());
-
-      print('boundary $boundary');
-      if (boundary is RenderBoundary) {
-        boundary.failure = failure;
-        boundary.markNeedsLayout();
-        boundary.element.markNeedsBuild();
-        throw failure.exception;
+      if (_boundary is RenderBoundary) {
+        RenderBoundary boundary = _boundary;
+        boundary._failure = failure;
       }
     }
-    failure = null;
+    _failure = null;
     exception = null;
+
     if (child != null) {
       child.layout(constraints, parentUsesSize: true);
+      if (failure != null) {
+        exception = failure.exception;
+        _failure = null;
+        element.propagating = true;
+        element.startPropa = true;
+        try {
+          invokeLayoutCallback(callback);
+          child.layout(constraints, parentUsesSize: true);
+        } catch (err) {
+          element.startPropa = false;
+          element.propagating = false;
+        }
+        assert(_failure != null);
+      }
       size = constraints.constrain(child.size);
     } else {
       size = constraints.biggest;

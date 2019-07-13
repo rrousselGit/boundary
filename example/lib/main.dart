@@ -1,42 +1,45 @@
 import 'package:boundary/boundary.dart';
 import 'package:flutter/material.dart';
 
-void main() => runApp(MyApp());
+final notifier = ValueNotifier(0);
 
-class MyApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(home: Home());
-  }
+void main() {
+  FlutterError.onError = null;
+  ErrorWidget.builder = mockError;
+  runApp(MaterialApp(
+    home: Scaffold(
+      body: Home(),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => notifier.value++,
+        child: Text('+'),
+      ),
+    ),
+  ));
 }
 
 class Home extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Boundary(
-      fallbackBuilder: (_, __) => Oops(),
-      child: Counter(),
-    );
-  }
-}
+  const Home({
+    Key key,
+  }) : super(key: key);
 
-class Oops extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Text('oops'),
+      child: Boundary<int>(
+        fallbackBuilder: (c, err) {
+          return Text('fallback', textDirection: TextDirection.ltr);
+        },
+        child: Boundary<String>(
+          fallbackBuilder: (c, err) => throw err,
+          child: ValueListenableBuilder<int>(
+            valueListenable: notifier,
+            builder: (_, value, __) {
+              if (value == 1) throw 42;
+              return Text(value.toString(), textDirection: TextDirection.ltr);
+            },
+          ),
+        ),
+      ),
     );
-  }
-}
-
-class Counter extends StatefulWidget {
-  @override
-  _CounterState createState() => _CounterState();
-}
-
-class _CounterState extends State<Counter> {
-  @override
-  Widget build(BuildContext context) {
-    return Container();
   }
 }
