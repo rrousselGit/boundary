@@ -45,7 +45,12 @@ VoidCallback setupBoundary() {
   };
 }
 
+/// A widget which captures exceptions throws when building any of its descendants.
+///
+/// For [Boundary] to work, it is necessary to call [setupBoundary] first,
+/// usually inside the `main` method.
 class Boundary extends StatelessWidget {
+  /// [fallbackBuilder] and [child] must not be `null`.
   const Boundary({
     Key key,
     @required this.fallbackBuilder,
@@ -54,12 +59,22 @@ class Boundary extends StatelessWidget {
         assert(fallbackBuilder != null),
         super(key: key);
 
+  /// The subtree from which [Boundary] will capture errors.
+  ///
+  /// If [child] or any of its descendants throws when building the widget,
+  /// then [fallbackBuilder] will be called with the exception.
   final Widget child;
+
+  /// A callback used to create a fallback UI if [child] fails to build.
+  ///
+  /// It is fine for [fallbackBuilder] to throws too, in which case the error
+  /// will be propagated to other boundaries.
   final BoundaryWidgetBuilder fallbackBuilder;
 
   @override
   _BoundaryElement createElement() => _BoundaryElement(this);
 
+  @override
   Widget build(BuildContext context) {
     return _Internal(
       child: child,
@@ -87,13 +102,13 @@ class _FallbackElement extends StatelessElement {
   _FallbackElement(_Fallback widget) : super(widget);
 
   @override
-  _Fallback get widget => super.widget;
+  _Fallback get widget => super.widget as _Fallback;
 
   _BoundaryElement boundary;
   _BoundaryElement didCatch;
 
   @override
-  Element updateChild(Element child, Widget newWidget, newSlot) {
+  Element updateChild(Element child, Widget newWidget, dynamic newSlot) {
     final res = super.updateChild(child, newWidget, newSlot);
 
     boundary = _InheritedBoundary.of(this);
@@ -163,7 +178,7 @@ class _BoundaryElement extends StatelessElement {
   _BoundaryElement(Boundary widget) : super(widget);
 
   @override
-  Boundary get widget => super.widget;
+  Boundary get widget => super.widget as Boundary;
 
   FlutterErrorDetails failure;
   bool isBuilding = false;
@@ -175,7 +190,7 @@ class _BoundaryElement extends StatelessElement {
   dynamic _slot;
 
   @override
-  Element updateChild(Element child, Widget newWidget, newSlot) {
+  Element updateChild(Element child, Widget newWidget, dynamic newSlot) {
     _child ??= child;
     _slot = newSlot;
     return _child = super.updateChild(child, newWidget, newSlot);
@@ -196,7 +211,7 @@ class _BoundaryElement extends StatelessElement {
   }
 
   @override
-  void mount(Element parent, newSlot) {
+  void mount(Element parent, dynamic newSlot) {
     super.mount(parent, newSlot);
     activated = true;
   }

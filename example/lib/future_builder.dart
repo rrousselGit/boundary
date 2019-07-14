@@ -1,3 +1,4 @@
+// ignore_for_file: public_member_api_docs
 import 'package:boundary/boundary.dart';
 import 'package:flutter/material.dart';
 
@@ -17,20 +18,20 @@ class _FutureBuilderExampleState extends State<FutureBuilderExample> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('FutureBuilder example')),
-body: Boundary(
-  fallbackBuilder: (_, error) {
-    // FutureBuilderExample doesn't have the reference on the Future, but
-    // is still able to display loading/error state
-    if (error is Loading) {
-      return const Center(child: CircularProgressIndicator());
-    } else if (error is NotFoundError) {
-      return const NotFoundScreen();
-    } else {
-      return const OopsScreen();
-    }
-  },
-  child: _FutureExample(key: key),
-),
+      body: Boundary(
+        fallbackBuilder: (_, dynamic error) {
+          // FutureBuilderExample doesn't have the reference on the Future, but
+          // is still able to display loading/error state
+          if (error is Loading) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (error is NotFoundError) {
+            return const NotFoundScreen();
+          } else {
+            return const OopsScreen();
+          }
+        },
+        child: _FutureExample(key: key),
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => setState(() => key = UniqueKey()),
         child: Icon(Icons.restore),
@@ -55,7 +56,10 @@ class __FutureExampleState extends State<_FutureExample> {
     return FutureBuilder<String>(
       future: future,
       builder: (_, snapshot) {
-        if (snapshot.hasError) throw snapshot.error;
+        if (snapshot.hasError) {
+          // ignore: only_throw_errors
+          throw snapshot.error;
+        }
         if (!snapshot.hasData) throw Loading();
 
         return Text(snapshot.data);
@@ -63,7 +67,7 @@ class __FutureExampleState extends State<_FutureExample> {
     );
   }
 
-  void onFutureChange(value) {
+  void onFutureChange(Future<String> value) {
     setState(() {
       future = value;
     });

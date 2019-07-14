@@ -1,3 +1,4 @@
+// ignore_for_file: only_throw_errors
 import 'package:boundary/boundary.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -26,7 +27,7 @@ void main() {
 
     await tester.pumpWidget(
       Boundary(
-        fallbackBuilder: (c, e) {
+        fallbackBuilder: (c, dynamic e) {
           builder(c, e);
           return Text(e.toString(), textDirection: TextDirection.ltr);
         },
@@ -50,7 +51,7 @@ void main() {
 
     await tester.pumpWidget(
       Boundary(
-        fallbackBuilder: (c, e) {
+        fallbackBuilder: (c, dynamic e) {
           builder(c, e);
           return Text(e.toString(), textDirection: TextDirection.ltr);
         },
@@ -76,11 +77,11 @@ void main() {
 
     await tester.pumpWidget(
       Boundary(
-        fallbackBuilder: (c, e) {
+        fallbackBuilder: (c, dynamic e) {
           builder(c, e);
           return Text(e.toString(), textDirection: TextDirection.ltr);
         },
-        child: ValueListenableBuilder(
+        child: ValueListenableBuilder<int>(
           valueListenable: notifier,
           builder: (_, value, __) {
             if (value == 1) throw 42;
@@ -117,11 +118,11 @@ void main() {
 
     await tester.pumpWidget(
       Boundary(
-        fallbackBuilder: (c, e) {
+        fallbackBuilder: (c, dynamic e) {
           builder(c, e);
           return Text(e.toString(), textDirection: TextDirection.ltr);
         },
-        child: ValueListenableBuilder(
+        child: ValueListenableBuilder<int>(
           valueListenable: notifier,
           builder: (_, value, __) {
             if (value == 0) throw 42;
@@ -150,8 +151,8 @@ void main() {
     final restore = setupBoundary();
 
     await tester.pumpWidget(Boundary(
-      fallbackBuilder: (_, __) {
-        return Text('fallback', textDirection: TextDirection.ltr);
+      fallbackBuilder: (_, dynamic __) {
+        return const Text('fallback', textDirection: TextDirection.ltr);
       },
       child: Builder(
         builder: (context) => throw 42,
@@ -159,12 +160,13 @@ void main() {
     ));
 
     await tester.pumpWidget(Boundary(
-      fallbackBuilder: (_, __) {
+      fallbackBuilder: (_, dynamic __) {
         builder(_, __);
-        return Text('fallback', textDirection: TextDirection.ltr);
+        return const Text('fallback', textDirection: TextDirection.ltr);
       },
       child: Builder(
-        builder: (context) => Text('42', textDirection: TextDirection.ltr),
+        builder: (context) =>
+            const Text('42', textDirection: TextDirection.ltr),
       ),
     ));
 
@@ -176,7 +178,7 @@ void main() {
   });
 
   testWidgets(
-      "fallbackBuilder can throw to propagate the exception to other boundaries",
+      'fallbackBuilder can throw to propagate the exception to other boundaries',
       (tester) async {
     final restore = setupBoundary();
 
@@ -184,14 +186,14 @@ void main() {
     final builder2 = BuilderMock();
 
     await tester.pumpWidget(Boundary(
-      fallbackBuilder: (c, err) {
+      fallbackBuilder: (c, dynamic err) {
         builder2(c, err);
         return Container();
       },
       child: Builder(
         builder: (context) {
           return Boundary(
-            fallbackBuilder: (c, err) {
+            fallbackBuilder: (c, dynamic err) {
               builder(c, err);
               throw err;
             },
@@ -211,7 +213,7 @@ void main() {
     verifyNoMoreInteractions(builder2);
   });
 
-  testWidgets("late propagation", (tester) async {
+  testWidgets('late propagation', (tester) async {
     final restore = setupBoundary();
 
     final builder = BuilderMock();
@@ -219,12 +221,12 @@ void main() {
     final notifier = ValueNotifier(0);
 
     await tester.pumpWidget(Boundary(
-      fallbackBuilder: (c, err) {
+      fallbackBuilder: (c, dynamic err) {
         builder2(c, err);
-        return Text('fallback', textDirection: TextDirection.ltr);
+        return const Text('fallback', textDirection: TextDirection.ltr);
       },
       child: Boundary(
-        fallbackBuilder: (c, err) {
+        fallbackBuilder: (c, dynamic err) {
           builder(c, err);
           throw err;
         },
@@ -282,12 +284,12 @@ void main() {
     final notifier = ValueNotifier(0);
 
     await tester.pumpWidget(Boundary(
-      fallbackBuilder: (c, err) {
+      fallbackBuilder: (c, dynamic err) {
         builder2(c, err);
-        return Text('fallback', textDirection: TextDirection.ltr);
+        return const Text('fallback', textDirection: TextDirection.ltr);
       },
       child: Boundary(
-        fallbackBuilder: (c, err) {
+        fallbackBuilder: (c, dynamic err) {
           builder(c, err);
           throw err;
         },
@@ -318,21 +320,6 @@ void main() {
     expect(find.text('1'), findsOneWidget);
   });
 
-  testWidgets("test", (tester) async {
-    final restore = setupBoundary();
-
-    await tester.pumpWidget(Boundary(
-      fallbackBuilder: (c, err) =>
-          Text(err.toString(), textDirection: TextDirection.ltr),
-      child: RepaintBoundary(
-        child: Center(child: Builder(builder: (_) => throw 42)),
-      ),
-    ));
-
-    restore();
-
-    expect(find.text('42'), findsOneWidget);
-  });
   testWidgets(
       "fallback don't lose its state when trying to rebuild child unsuccessfuly",
       (tester) async {
@@ -341,14 +328,16 @@ void main() {
 
     await tester.pumpWidget(
       Boundary(
-        fallbackBuilder: (_, __) => MyStateful(didInitState: () => initCount++),
+        fallbackBuilder: (_, dynamic __) =>
+            MyStateful(didInitState: () => initCount++),
         child: Builder(builder: (_) => throw 42),
       ),
     );
 
     await tester.pumpWidget(
       Boundary(
-        fallbackBuilder: (_, __) => MyStateful(didInitState: () => initCount++),
+        fallbackBuilder: (_, dynamic __) =>
+            MyStateful(didInitState: () => initCount++),
         child: Builder(builder: (_) => throw 42),
       ),
     );
@@ -359,7 +348,7 @@ void main() {
   });
   testWidgets("child doesn't rebuild if didn't change and no error",
       (tester) async {
-    int buildCount = 0;
+    var buildCount = 0;
     final child = Builder(builder: (_) {
       buildCount++;
       return Container();
@@ -367,14 +356,14 @@ void main() {
 
     await tester.pumpWidget(
       Boundary(
-        fallbackBuilder: (_, __) => null,
+        fallbackBuilder: (_, dynamic __) => null,
         child: child,
       ),
     );
 
     await tester.pumpWidget(
       Boundary(
-        fallbackBuilder: (_, __) => null,
+        fallbackBuilder: (_, dynamic __) => null,
         child: child,
       ),
     );

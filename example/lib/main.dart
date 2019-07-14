@@ -1,3 +1,4 @@
+// ignore_for_file: public_member_api_docs
 import 'package:boundary/boundary.dart';
 import 'package:flutter/material.dart';
 
@@ -5,7 +6,7 @@ import 'future_builder.dart';
 
 void main() {
   setupBoundary();
-  runApp(Gallery());
+  runApp(const Gallery());
 }
 
 class Routes {

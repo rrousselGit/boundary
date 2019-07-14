@@ -1,3 +1,4 @@
+// ignore_for_file: public_member_api_docs
 import 'package:flutter/material.dart';
 
 class NotFoundError extends Error {
@@ -22,29 +23,29 @@ class Menu extends StatelessWidget {
           RaisedButton(
             onPressed: () {
               onChange(
-                Future.delayed(const Duration(seconds: 2))
+                Future<String>.delayed(const Duration(seconds: 2))
                     .then((_) => 'Hello World'),
               );
             },
-            child: Text('Future that resolves with "Hello World"'),
+            child: const Text('Future that resolves with "Hello World"'),
           ),
           RaisedButton(
             onPressed: () {
               onChange(
-                Future.delayed(const Duration(seconds: 2))
+                Future<String>.delayed(const Duration(seconds: 2))
                     .then((_) => throw NotFoundError()),
               );
             },
-            child: Text('Future that throws a NotFoundError'),
+            child: const Text('Future that throws a NotFoundError'),
           ),
           RaisedButton(
             onPressed: () {
               onChange(
-                Future.delayed(const Duration(seconds: 2))
+                Future<String>.delayed(const Duration(seconds: 2))
                     .then((_) => throw Error()),
               );
             },
-            child: Text('Future that throws a random exception'),
+            child: const Text('Future that throws a random exception'),
           ),
         ],
       ),
@@ -63,7 +64,7 @@ class NotFoundScreen extends StatelessWidget {
       child: Column(
         children: <Widget>[
           Text('Not found', style: Theme.of(context).textTheme.headline),
-          Text("There's nothing to see here"),
+          const Text("There's nothing to see here"),
         ],
       ),
     );
@@ -76,7 +77,7 @@ class OopsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Text('Oops, something unexpected happened'),
+      child: const Text('Oops, something unexpected happened'),
     );
   }
 }
