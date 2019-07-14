@@ -137,6 +137,7 @@ class Boundary<T> extends StatelessWidget {
     return _Internal(
       child: child,
       element: context as BoundaryElement,
+      exception: (context as BoundaryElement).exception,
       fallbackBuilder: fallbackBuilder,
     );
   }
@@ -156,6 +157,7 @@ class BoundaryElement extends StatelessElement {
   FlutterErrorDetails failure;
   bool isBuilding = false;
   bool activated = false;
+  dynamic exception;
 
   Element _child;
   dynamic _slot;
@@ -200,8 +202,9 @@ class BoundaryElement extends StatelessElement {
 
   void markSubtreeFailed(FlutterErrorDetails failure) {
     this.failure = failure;
+    exception = failure?.exception;
     if (!isBuilding) {
-      rebuildWithError(failure?.exception);
+      rebuildWithError(exception);
     }
   }
 

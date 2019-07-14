@@ -334,6 +334,31 @@ void main() {
 
     expect(find.text('42'), findsOneWidget);
   });
+  testWidgets(
+      "fallback don't lose its state when trying to rebuild child unsuccessfuly",
+      (tester) async {
+    var a = mockFlutterError(null), b = mockErrorWidget(mockError);
+    var initCount = 0;
+
+    await tester.pumpWidget(
+      Boundary<String>(
+        fallbackBuilder: (_, __) => MyStateful(didInitState: () => initCount++),
+        child: Builder(builder: (_) => throw 42),
+      ),
+    );
+
+    await tester.pumpWidget(
+      Boundary<String>(
+        fallbackBuilder: (_, __) => MyStateful(didInitState: () => initCount++),
+        child: Builder(builder: (_) => throw 42),
+      ),
+    );
+
+    FlutterError.onError = a;
+    ErrorWidget.builder = b;
+
+    expect(initCount, equals(1));
+  });
   testWidgets("child doesn't rebuild if didn't change and no error",
       (tester) async {
     int buildCount = 0;
@@ -362,4 +387,26 @@ void main() {
 
 class BuilderMock extends Mock {
   Widget call(BuildContext context, dynamic error);
+}
+
+class MyStateful extends StatefulWidget {
+  const MyStateful({Key key, this.didInitState}) : super(key: key);
+
+  final VoidCallback didInitState;
+
+  @override
+  _MyStatefulState createState() => _MyStatefulState();
+}
+
+class _MyStatefulState extends State<MyStateful> {
+  @override
+  void initState() {
+    super.initState();
+    widget.didInitState?.call();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container();
+  }
 }
