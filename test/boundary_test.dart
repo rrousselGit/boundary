@@ -358,7 +358,6 @@ void main() {
 
     expect(buildCount, equals(1));
   });
-  test("child does rebuild if didn't change but error", () {}, skip: true);
 }
 
 class BuilderMock extends Mock {
