@@ -1,9 +1,7 @@
-<div style="display: flex; align-items:center">
 <img
     src="https://cdn0.iconfinder.com/data/icons/poison-symbol/66/30-512.png"
     width="100px"
 /> <h2>Warning, experimental project</h2>
-</div>
 
 # Boundary
 
@@ -45,4 +43,3 @@ Scaffold(
 ```
 
 In this example,
-
