@@ -53,7 +53,7 @@ Error reporting and fallback UI are now represented through one universal widget
 `Boundary`
 
 This widget, when inserted inside the widget tree, is able to catch exceptions
-for descendants (and only descendants) to then create a fallback UI.
+from descendants (and only descendants) to then create a fallback UI.
 
 Here's a typical example:
 
