@@ -2,7 +2,6 @@ import 'package:boundary/boundary.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_test/flutter_test.dart' as prefix0;
 import 'package:mockito/mockito.dart';
 
 ErrorWidgetBuilder mockErrorWidget(ErrorWidgetBuilder builder) {
@@ -33,8 +32,7 @@ void main() {
     verifyZeroInteractions(builder);
   });
   testWidgets('root exception', (tester) async {
-    final a = mockFlutterError(null);
-    final b = mockErrorWidget(mockError);
+    final restore = setupBoundary();
 
     final builder = BuilderMock();
 
@@ -50,8 +48,7 @@ void main() {
       ),
     );
 
-    FlutterError.onError = a;
-    ErrorWidget.builder = b;
+    restore();
 
     expect(find.text('42'), findsOneWidget);
 
@@ -59,8 +56,7 @@ void main() {
     verifyNoMoreInteractions(builder);
   });
   testWidgets('nested exception', (tester) async {
-    final a = mockFlutterError(null);
-    final b = mockErrorWidget(mockError);
+    final restore = setupBoundary();
 
     final builder = BuilderMock();
 
@@ -76,8 +72,7 @@ void main() {
       ),
     );
 
-    FlutterError.onError = a;
-    ErrorWidget.builder = b;
+    restore();
 
     expect(find.text('42'), findsOneWidget);
 
@@ -86,7 +81,7 @@ void main() {
   });
 
   testWidgets('late exception', (tester) async {
-    var a = mockFlutterError(null), b = mockErrorWidget(mockError);
+    final restore = setupBoundary();
 
     final notifier = ValueNotifier(0);
     final builder = BuilderMock();
@@ -107,20 +102,17 @@ void main() {
       ),
     );
 
-    FlutterError.onError = a;
-    ErrorWidget.builder = b;
+    restore();
 
     expect(find.text('0'), findsOneWidget);
     verifyZeroInteractions(builder);
 
-    mockFlutterError(null);
-    mockErrorWidget(mockError);
+    setupBoundary();
 
     notifier.value++;
     await tester.pump();
 
-    FlutterError.onError = a;
-    ErrorWidget.builder = b;
+    restore();
 
     verify(builder(argThat(isNotNull), 42)).called(1);
     verifyNoMoreInteractions(builder);
@@ -130,7 +122,7 @@ void main() {
 
   testWidgets('child rebuilding after an error stops showing fallback',
       (tester) async {
-    var a = mockFlutterError(null), b = mockErrorWidget(mockError);
+    final restore = setupBoundary();
 
     final notifier = ValueNotifier(0);
     final builder = BuilderMock();
@@ -151,16 +143,14 @@ void main() {
       ),
     );
 
-    FlutterError.onError = a;
-    ErrorWidget.builder = b;
+    restore();
 
     clearInteractions(builder);
 
     notifier.value++;
     await tester.pump();
 
-    FlutterError.onError = a;
-    ErrorWidget.builder = b;
+    restore();
 
     verifyNoMoreInteractions(builder);
     expect(find.text('1'), findsOneWidget);
@@ -169,19 +159,19 @@ void main() {
   testWidgets(
       "fallbackBuilder can throw to propagate the exception to other boundaries",
       (tester) async {
-    var a = mockFlutterError(null), b = mockErrorWidget(mockError);
+    final restore = setupBoundary();
 
     final builder = BuilderMock();
     final builder2 = BuilderMock();
 
-    await tester.pumpWidget(Boundary<int>(
+    await tester.pumpWidget(Boundary(
       fallbackBuilder: (c, err) {
         builder2(c, err);
         return Container();
       },
       child: Builder(
         builder: (context) {
-          return Boundary<String>(
+          return Boundary(
             fallbackBuilder: (c, err) {
               builder(c, err);
               throw err;
@@ -192,8 +182,7 @@ void main() {
       ),
     ));
 
-    FlutterError.onError = a;
-    ErrorWidget.builder = b;
+    restore();
 
     verifyInOrder([
       builder(any, 42),
@@ -204,18 +193,18 @@ void main() {
   });
 
   testWidgets("late propagation", (tester) async {
-    var a = mockFlutterError(null), b = mockErrorWidget(mockError);
+    final restore = setupBoundary();
 
     final builder = BuilderMock();
     final builder2 = BuilderMock();
     final notifier = ValueNotifier(0);
 
-    await tester.pumpWidget(Boundary<int>(
+    await tester.pumpWidget(Boundary(
       fallbackBuilder: (c, err) {
         builder2(c, err);
         return Text('fallback', textDirection: TextDirection.ltr);
       },
-      child: Boundary<String>(
+      child: Boundary(
         fallbackBuilder: (c, err) {
           builder(c, err);
           throw err;
@@ -230,8 +219,7 @@ void main() {
       ),
     ));
 
-    FlutterError.onError = a;
-    ErrorWidget.builder = b;
+    restore();
 
     verifyZeroInteractions(builder);
     verifyZeroInteractions(builder2);
@@ -239,12 +227,10 @@ void main() {
     expect(find.text('0'), findsOneWidget);
 
     notifier.value++;
-    mockFlutterError(null);
-    mockErrorWidget(mockError);
+    setupBoundary();
     await tester.pump();
 
-    FlutterError.onError = a;
-    ErrorWidget.builder = b;
+    restore();
 
     expect(find.text('0'), findsNothing);
     expect(find.text('fallback'), findsOneWidget);
@@ -257,12 +243,10 @@ void main() {
     verifyNoMoreInteractions(builder2);
 
     notifier.value++;
-    mockFlutterError(null);
-    mockErrorWidget(mockError);
+    setupBoundary();
     await tester.pump();
 
-    FlutterError.onError = a;
-    ErrorWidget.builder = b;
+    restore();
     verifyNoMoreInteractions(builder);
     verifyNoMoreInteractions(builder2);
 
@@ -272,18 +256,18 @@ void main() {
   testWidgets(
       'propagated error when rebuild successfuly correctly hides fallback widget',
       (tester) async {
-    var a = mockFlutterError(null), b = mockErrorWidget(mockError);
+    final restore = setupBoundary();
 
     final builder = BuilderMock();
     final builder2 = BuilderMock();
     final notifier = ValueNotifier(0);
 
-    await tester.pumpWidget(Boundary<int>(
+    await tester.pumpWidget(Boundary(
       fallbackBuilder: (c, err) {
         builder2(c, err);
         return Text('fallback', textDirection: TextDirection.ltr);
       },
-      child: Boundary<String>(
+      child: Boundary(
         fallbackBuilder: (c, err) {
           builder(c, err);
           throw err;
@@ -298,20 +282,17 @@ void main() {
       ),
     ));
 
-    FlutterError.onError = a;
-    ErrorWidget.builder = b;
+    restore();
 
     clearInteractions(builder);
     clearInteractions(builder2);
     expect(find.text('fallback'), findsOneWidget);
 
     notifier.value++;
-    mockFlutterError(null);
-    mockErrorWidget(mockError);
+    setupBoundary();
     await tester.pump();
 
-    FlutterError.onError = a;
-    ErrorWidget.builder = b;
+    restore();
     verifyNoMoreInteractions(builder);
     verifyNoMoreInteractions(builder2);
 
@@ -319,9 +300,9 @@ void main() {
   });
 
   testWidgets("test", (tester) async {
-    var a = mockFlutterError(null), b = mockErrorWidget(mockError);
+    final restore = setupBoundary();
 
-    await tester.pumpWidget(Boundary<String>(
+    await tester.pumpWidget(Boundary(
       fallbackBuilder: (c, err) =>
           Text(err.toString(), textDirection: TextDirection.ltr),
       child: RepaintBoundary(
@@ -329,33 +310,31 @@ void main() {
       ),
     ));
 
-    FlutterError.onError = a;
-    ErrorWidget.builder = b;
+    restore();
 
     expect(find.text('42'), findsOneWidget);
   });
   testWidgets(
       "fallback don't lose its state when trying to rebuild child unsuccessfuly",
       (tester) async {
-    var a = mockFlutterError(null), b = mockErrorWidget(mockError);
+    final restore = setupBoundary();
     var initCount = 0;
 
     await tester.pumpWidget(
-      Boundary<String>(
+      Boundary(
         fallbackBuilder: (_, __) => MyStateful(didInitState: () => initCount++),
         child: Builder(builder: (_) => throw 42),
       ),
     );
 
     await tester.pumpWidget(
-      Boundary<String>(
+      Boundary(
         fallbackBuilder: (_, __) => MyStateful(didInitState: () => initCount++),
         child: Builder(builder: (_) => throw 42),
       ),
     );
 
-    FlutterError.onError = a;
-    ErrorWidget.builder = b;
+    restore();
 
     expect(initCount, equals(1));
   });
@@ -368,14 +347,14 @@ void main() {
     });
 
     await tester.pumpWidget(
-      Boundary<String>(
+      Boundary(
         fallbackBuilder: (_, __) => null,
         child: child,
       ),
     );
 
     await tester.pumpWidget(
-      Boundary<String>(
+      Boundary(
         fallbackBuilder: (_, __) => null,
         child: child,
       ),
