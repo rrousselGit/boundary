@@ -37,7 +37,7 @@ VoidCallback setupBoundary() {
   final builder = ErrorWidget.builder;
 
   FlutterError.onError = null;
-  ErrorWidget.builder = (details) => _Builder(details);
+  ErrorWidget.builder = (details) => _Fallback(details);
 
   return () {
     FlutterError.onError = onError;
@@ -45,23 +45,49 @@ VoidCallback setupBoundary() {
   };
 }
 
-class _Builder extends StatelessWidget {
-  _Builder(this.details);
+class Boundary extends StatelessWidget {
+  const Boundary({
+    Key key,
+    @required this.fallbackBuilder,
+    @required this.child,
+  })  : assert(child != null),
+        assert(fallbackBuilder != null),
+        super(key: key);
+
+  final Widget child;
+  final BoundaryWidgetBuilder fallbackBuilder;
+
+  @override
+  _BoundaryElement createElement() => _BoundaryElement(this);
+
+  Widget build(BuildContext context) {
+    return _Internal(
+      child: child,
+      showChild: true,
+      element: context as _BoundaryElement,
+      exception: (context as _BoundaryElement).exception,
+      fallbackBuilder: fallbackBuilder,
+    );
+  }
+}
+
+class _Fallback extends StatelessWidget {
+  _Fallback(this.details);
 
   final FlutterErrorDetails details;
 
   @override
-  _BuilderElement createElement() => _BuilderElement(this);
+  _FallbackElement createElement() => _FallbackElement(this);
 
   @override
   Widget build(BuildContext context) => const SizedBox();
 }
 
-class _BuilderElement extends StatelessElement {
-  _BuilderElement(_Builder widget) : super(widget);
+class _FallbackElement extends StatelessElement {
+  _FallbackElement(_Fallback widget) : super(widget);
 
   @override
-  _Builder get widget => super.widget;
+  _Fallback get widget => super.widget;
 
   _BoundaryElement boundary;
   _BoundaryElement didCatch;
@@ -87,37 +113,41 @@ class _BuilderElement extends StatelessElement {
 }
 
 class _Internal extends StatelessWidget {
-  const _Internal(
-      {Key key, this.element, this.child, this.fallbackBuilder, this.exception})
-      : super(key: key);
+  const _Internal({
+    Key key,
+    this.element,
+    this.child,
+    this.fallbackBuilder,
+    this.exception,
+    this.showChild,
+  }) : super(key: key);
 
   final _BoundaryElement element;
   final Widget child;
   final BoundaryWidgetBuilder fallbackBuilder;
   final dynamic exception;
+  final bool showChild;
 
   @override
   Widget build(BuildContext context) {
-    if (element.propagating && !element.startPropa) {
-      return element.cache;
-    }
-
     if (exception != null) {
-      element.errorWidget = _InheritedBoundary(
-        element: _InheritedBoundary.of(context),
-        child:
-            Builder(builder: (context) => fallbackBuilder(context, exception)),
-      );
+      if (!showChild) {
+        element.errorWidget = _InheritedBoundary(
+          element: _InheritedBoundary.of(context),
+          child: Builder(
+              builder: (context) => fallbackBuilder(context, exception)),
+        );
+      }
     } else {
       element.errorWidget = null;
     }
 
     final valid = Offstage(
-      offstage: exception != null,
+      offstage: !showChild && exception != null,
       child: child,
     );
 
-    return element.cache = _InheritedBoundary(
+    return _InheritedBoundary(
       element: element,
       child: Stack(
         alignment: Alignment.center,
@@ -129,48 +159,17 @@ class _Internal extends StatelessWidget {
   }
 }
 
-class Boundary extends StatelessWidget {
-  const Boundary({
-    Key key,
-    @required this.fallbackBuilder,
-    @required this.child,
-  })  : assert(child != null),
-        assert(fallbackBuilder != null),
-        super(key: key);
-
-  final Widget child;
-  final BoundaryWidgetBuilder fallbackBuilder;
-
-  @override
-  _BoundaryElement createElement() => _BoundaryElement(this);
-
-  // updateRenderObject is redundant with the logic in the LayoutBuilderElement below.
-
-  Widget build(BuildContext context) {
-    return _Internal(
-      child: child,
-      element: context as _BoundaryElement,
-      exception: (context as _BoundaryElement).exception,
-      fallbackBuilder: fallbackBuilder,
-    );
-  }
-}
-
 class _BoundaryElement extends StatelessElement {
   _BoundaryElement(Boundary widget) : super(widget);
 
   @override
   Boundary get widget => super.widget;
 
-  Widget errorWidget;
-  bool propagating = false;
-  bool startPropa = false;
-  Widget cache;
-  dynamic error;
   FlutterErrorDetails failure;
   bool isBuilding = false;
   bool activated = false;
   dynamic exception;
+  Widget errorWidget;
 
   Element _child;
   dynamic _slot;
@@ -185,12 +184,13 @@ class _BoundaryElement extends StatelessElement {
   @override
   void performRebuild() {
     isBuilding = true;
+    final hadError = failure != null;
     failure = null;
     super.performRebuild();
     isBuilding = false;
-    if (failure != null) {
-      final exception = failure.exception;
-      failure = null;
+    final hasError = failure != null;
+    if (hasError != hadError) {
+      exception = failure?.exception;
       rebuildWithError(exception);
     }
   }
@@ -226,6 +226,7 @@ class _BoundaryElement extends StatelessElement {
       _child,
       _Internal(
         element: this,
+        showChild: false,
         fallbackBuilder: widget.fallbackBuilder,
         exception: exception,
         child: widget.child,

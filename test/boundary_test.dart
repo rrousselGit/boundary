@@ -143,6 +143,37 @@ void main() {
     verifyNoMoreInteractions(builder);
     expect(find.text('1'), findsOneWidget);
   });
+  testWidgets(
+      'both rebuilding the boundary and fixing the error simultaneously removes the fallback',
+      (tester) async {
+    final builder = BuilderMock();
+    final restore = setupBoundary();
+
+    await tester.pumpWidget(Boundary(
+      fallbackBuilder: (_, __) {
+        return Text('fallback', textDirection: TextDirection.ltr);
+      },
+      child: Builder(
+        builder: (context) => throw 42,
+      ),
+    ));
+
+    await tester.pumpWidget(Boundary(
+      fallbackBuilder: (_, __) {
+        builder(_, __);
+        return Text('fallback', textDirection: TextDirection.ltr);
+      },
+      child: Builder(
+        builder: (context) => Text('42', textDirection: TextDirection.ltr),
+      ),
+    ));
+
+    restore();
+
+    verifyZeroInteractions(builder);
+    expect(find.text('fallback'), findsNothing);
+    expect(find.text('42'), findsOneWidget);
+  });
 
   testWidgets(
       "fallbackBuilder can throw to propagate the exception to other boundaries",
