@@ -1,16 +1,48 @@
-# boundary
+<div style="display: flex; align-items:center">
+<img
+    src="https://cdn0.iconfinder.com/data/icons/poison-symbol/66/30-512.png"
+    width="100px"
+/> <h2>Warning, experimental project</h2>
+</div>
 
-A new Flutter project.
+# Boundary
 
-## Getting Started
+Boundary is a new widget for Flutter that takes over `FlutterError.onError` and
+`ErrorWidget.builder` to make them composable and scoped.
 
-This project is a starting point for a Flutter application.
+If you ever wanted to have your error reporting applied only a specific part of
+your widget tree, or if you found difficult to implement an "Oops"/Loading
+screen, than this library is for you.
 
-A few resources to get you started if this is your first Flutter project:
+## Principle
 
-- [Lab: Write your first Flutter app](https://flutter.dev/docs/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://flutter.dev/docs/cookbook)
+Error reporting and fallback UI are now represented through one universal widget:
 
-For help getting started with Flutter, view our
-[online documentation](https://flutter.dev/docs), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+`Boundary`
+
+This widget, when inserted inside the widget tree, is able to catch exceptions
+for descendants (and only descendants) to then create a fallback UI.
+
+It is typically used as such:
+
+```dart
+Scaffold(
+  appBar: AppBar(title: const Text('hello')),
+  body: Boundary(
+    fallbackBuilder: (context, error) {
+      return const Center(child: Text('Oops'));
+    },
+    child: Container(
+      color: Colors.red,
+      padding: const EdgeInsets.all(50),
+      child: Builder(builder: (_) {
+        // a descendant somethow failed
+        throw 42;
+      }),
+    ),
+  ),
+);
+```
+
+In this example,
+
