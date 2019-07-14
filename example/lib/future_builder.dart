@@ -17,20 +17,20 @@ class _FutureBuilderExampleState extends State<FutureBuilderExample> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('FutureBuilder example')),
-      body: Boundary(
-        fallbackBuilder: (_, error) {
-          // FutureBuilderExample doesn't have the reference on the Future, but
-          // is still able to display loading/error state
-          if (error is Loading) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (error is NotFoundError) {
-            return const NotFoundScreen();
-          } else {
-            return const OopsScreen();
-          }
-        },
-        child: _FutureExample(key: key),
-      ),
+body: Boundary(
+  fallbackBuilder: (_, error) {
+    // FutureBuilderExample doesn't have the reference on the Future, but
+    // is still able to display loading/error state
+    if (error is Loading) {
+      return const Center(child: CircularProgressIndicator());
+    } else if (error is NotFoundError) {
+      return const NotFoundScreen();
+    } else {
+      return const OopsScreen();
+    }
+  },
+  child: _FutureExample(key: key),
+),
       floatingActionButton: FloatingActionButton(
         onPressed: () => setState(() => key = UniqueKey()),
         child: Icon(Icons.restore),
