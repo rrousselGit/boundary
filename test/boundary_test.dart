@@ -4,18 +4,6 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 
-ErrorWidgetBuilder mockErrorWidget(ErrorWidgetBuilder builder) {
-  final origin = ErrorWidget.builder;
-  ErrorWidget.builder = builder;
-  return origin;
-}
-
-FlutterExceptionHandler mockFlutterError(FlutterExceptionHandler builder) {
-  final origin = FlutterError.onError;
-  FlutterError.onError = builder;
-  return origin;
-}
-
 void main() {
   testWidgets("fallback isn't called if child succeeds", (tester) async {
     final key = GlobalKey();
