@@ -5,6 +5,30 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 
+class MockFlutterError extends Mock {
+  void call(FlutterErrorDetails details);
+}
+
+class MockErrorBuilder extends Mock {
+  Widget call(FlutterErrorDetails details);
+}
+
+VoidCallback mockErrorHandlers({
+  FlutterExceptionHandler onError,
+  ErrorWidgetBuilder errorBuilder,
+}) {
+  final o = FlutterError.onError;
+  final e = ErrorWidget.builder;
+
+  FlutterError.onError = onError;
+  ErrorWidget.builder = errorBuilder;
+
+  return () {
+    FlutterError.onError = o;
+    ErrorWidget.builder = e;
+  };
+}
+
 void main() {
   testWidgets("fallback isn't called if child succeeds", (tester) async {
     final key = GlobalKey();
@@ -21,8 +45,6 @@ void main() {
     verifyZeroInteractions(builder);
   });
   testWidgets('root exception', (tester) async {
-    final restore = setupBoundary();
-
     final builder = BuilderMock();
 
     await tester.pumpWidget(
@@ -32,12 +54,10 @@ void main() {
           return Text(e.toString(), textDirection: TextDirection.ltr);
         },
         child: Builder(builder: (context) {
-          throw 42;
+          return Defer(42);
         }),
       ),
     );
-
-    restore();
 
     expect(find.text('42'), findsOneWidget);
 
@@ -45,8 +65,6 @@ void main() {
     verifyNoMoreInteractions(builder);
   });
   testWidgets('nested exception', (tester) async {
-    final restore = setupBoundary();
-
     final builder = BuilderMock();
 
     await tester.pumpWidget(
@@ -55,13 +73,13 @@ void main() {
           builder(c, e);
           return Text(e.toString(), textDirection: TextDirection.ltr);
         },
-        child: Container(child: Builder(builder: (context) {
-          throw 42;
-        })),
+        child: Container(
+          child: Builder(builder: (context) {
+            return Defer(42);
+          }),
+        ),
       ),
     );
-
-    restore();
 
     expect(find.text('42'), findsOneWidget);
 
@@ -70,8 +88,6 @@ void main() {
   });
 
   testWidgets('late exception', (tester) async {
-    final restore = setupBoundary();
-
     final notifier = ValueNotifier(0);
     final builder = BuilderMock();
 
@@ -84,24 +100,18 @@ void main() {
         child: ValueListenableBuilder<int>(
           valueListenable: notifier,
           builder: (_, value, __) {
-            if (value == 1) throw 42;
+            if (value == 1) return Defer(42);
             return Text(value.toString(), textDirection: TextDirection.ltr);
           },
         ),
       ),
     );
 
-    restore();
-
     expect(find.text('0'), findsOneWidget);
     verifyZeroInteractions(builder);
 
-    setupBoundary();
-
     notifier.value++;
     await tester.pump();
-
-    restore();
 
     verify(builder(argThat(isNotNull), 42)).called(1);
     verifyNoMoreInteractions(builder);
@@ -111,8 +121,6 @@ void main() {
 
   testWidgets('child rebuilding after an error stops showing fallback',
       (tester) async {
-    final restore = setupBoundary();
-
     final notifier = ValueNotifier(0);
     final builder = BuilderMock();
 
@@ -125,21 +133,17 @@ void main() {
         child: ValueListenableBuilder<int>(
           valueListenable: notifier,
           builder: (_, value, __) {
-            if (value == 0) throw 42;
+            if (value == 0) return Defer(42);
             return Text(value.toString(), textDirection: TextDirection.ltr);
           },
         ),
       ),
     );
 
-    restore();
-
     clearInteractions(builder);
 
     notifier.value++;
     await tester.pump();
-
-    restore();
 
     verifyNoMoreInteractions(builder);
     expect(find.text('1'), findsOneWidget);
@@ -148,14 +152,12 @@ void main() {
       'both rebuilding the boundary and fixing the error simultaneously removes the fallback',
       (tester) async {
     final builder = BuilderMock();
-    final restore = setupBoundary();
-
     await tester.pumpWidget(Boundary(
       fallbackBuilder: (_, dynamic __) {
         return const Text('fallback', textDirection: TextDirection.ltr);
       },
       child: Builder(
-        builder: (context) => throw 42,
+        builder: (context) => Defer(42),
       ),
     ));
 
@@ -170,8 +172,6 @@ void main() {
       ),
     ));
 
-    restore();
-
     verifyZeroInteractions(builder);
     expect(find.text('fallback'), findsNothing);
     expect(find.text('42'), findsOneWidget);
@@ -180,8 +180,6 @@ void main() {
   testWidgets(
       'fallbackBuilder can throw to propagate the exception to other boundaries',
       (tester) async {
-    final restore = setupBoundary();
-
     final builder = BuilderMock();
     final builder2 = BuilderMock();
 
@@ -195,15 +193,13 @@ void main() {
           return Boundary(
             fallbackBuilder: (c, dynamic err) {
               builder(c, err);
-              throw err;
+              return Defer(err);
             },
-            child: Builder(builder: (_) => throw 42),
+            child: Builder(builder: (_) => Defer(42)),
           );
         },
       ),
     ));
-
-    restore();
 
     verifyInOrder([
       builder(any, 42),
@@ -214,8 +210,6 @@ void main() {
   });
 
   testWidgets('late propagation', (tester) async {
-    final restore = setupBoundary();
-
     final builder = BuilderMock();
     final builder2 = BuilderMock();
     final notifier = ValueNotifier(0);
@@ -228,19 +222,17 @@ void main() {
       child: Boundary(
         fallbackBuilder: (c, dynamic err) {
           builder(c, err);
-          throw err;
+          return Defer(err);
         },
         child: ValueListenableBuilder<int>(
           valueListenable: notifier,
           builder: (_, value, __) {
-            if (value == 1) throw 42;
+            if (value == 1) return Defer(42);
             return Text(value.toString(), textDirection: TextDirection.ltr);
           },
         ),
       ),
     ));
-
-    restore();
 
     verifyZeroInteractions(builder);
     verifyZeroInteractions(builder2);
@@ -248,10 +240,7 @@ void main() {
     expect(find.text('0'), findsOneWidget);
 
     notifier.value++;
-    setupBoundary();
     await tester.pump();
-
-    restore();
 
     expect(find.text('0'), findsNothing);
     expect(find.text('fallback'), findsOneWidget);
@@ -264,10 +253,8 @@ void main() {
     verifyNoMoreInteractions(builder2);
 
     notifier.value++;
-    setupBoundary();
     await tester.pump();
 
-    restore();
     verifyNoMoreInteractions(builder);
     verifyNoMoreInteractions(builder2);
 
@@ -277,8 +264,6 @@ void main() {
   testWidgets(
       'propagated error when rebuild successfuly correctly hides fallback widget',
       (tester) async {
-    final restore = setupBoundary();
-
     final builder = BuilderMock();
     final builder2 = BuilderMock();
     final notifier = ValueNotifier(0);
@@ -291,29 +276,25 @@ void main() {
       child: Boundary(
         fallbackBuilder: (c, dynamic err) {
           builder(c, err);
-          throw err;
+          return Defer(err);
         },
         child: ValueListenableBuilder<int>(
           valueListenable: notifier,
           builder: (_, value, __) {
-            if (value == 0) throw 42;
+            if (value == 0) return Defer(42);
             return Text(value.toString(), textDirection: TextDirection.ltr);
           },
         ),
       ),
     ));
 
-    restore();
-
     clearInteractions(builder);
     clearInteractions(builder2);
     expect(find.text('fallback'), findsOneWidget);
 
     notifier.value++;
-    setupBoundary();
     await tester.pump();
 
-    restore();
     verifyNoMoreInteractions(builder);
     verifyNoMoreInteractions(builder2);
 
@@ -323,14 +304,13 @@ void main() {
   testWidgets(
       "fallback don't lose its state when trying to rebuild child unsuccessfuly",
       (tester) async {
-    final restore = setupBoundary();
     var initCount = 0;
 
     await tester.pumpWidget(
       Boundary(
         fallbackBuilder: (_, dynamic __) =>
             MyStateful(didInitState: () => initCount++),
-        child: Builder(builder: (_) => throw 42),
+        child: Builder(builder: (_) => Defer(42)),
       ),
     );
 
@@ -338,13 +318,27 @@ void main() {
       Boundary(
         fallbackBuilder: (_, dynamic __) =>
             MyStateful(didInitState: () => initCount++),
-        child: Builder(builder: (_) => throw 42),
+        child: Builder(builder: (_) => Defer(42)),
       ),
     );
 
+    expect(initCount, equals(1));
+  });
+  testWidgets('Defer without a Boundary in its ancestors report an error',
+      (tester) async {
+    final onError = MockFlutterError();
+    final restore = mockErrorHandlers(onError: onError);
+
+    await tester.pumpWidget(Defer(42));
+
     restore();
 
-    expect(initCount, equals(1));
+    final dynamic exception = tester.takeException();
+
+    expect(exception, isInstanceOf<BoundaryNotFoundError>());
+    expect(exception.toString(), equals('''
+    Error: No Boundary<int> found.   
+    '''));
   });
   testWidgets("child doesn't rebuild if didn't change and no error",
       (tester) async {

@@ -5,6 +5,22 @@ import 'package:flutter/widgets.dart';
 typedef BoundaryWidgetBuilder = Widget Function(
     BuildContext context, dynamic error);
 
+/// No `Boundary<valueType>` were found as an ancestor of a [Defer] was used.
+class BoundaryNotFoundError extends Error {
+  /// The type of the widget that tried (and failed) to access `Boundary<valueType>`.
+  final Type valueType;
+
+  /// Allows specifying [valueType]
+  BoundaryNotFoundError(this.valueType);
+
+  @override
+  String toString() {
+    return '''
+Error: No Boundary<$valueType> found.
+''';
+  }
+}
+
 class _InheritedBoundary extends InheritedWidget {
   _InheritedBoundary({Key key, this.element, Widget child})
       : super(key: key, child: child);
@@ -28,27 +44,6 @@ class _InheritedBoundary extends InheritedWidget {
   }
 }
 
-/// Update [FlutterError.onError] and [ErrorWidget.builder] to work with [Boundary]
-///
-/// The function returned can be called to restore the settings to their original
-/// value.
-VoidCallback setupBoundary() {
-  final onError = FlutterError.onError;
-  final builder = ErrorWidget.builder;
-
-  FlutterError.onError = null;
-  ErrorWidget.builder = (details) => _Fallback(details);
-
-  return () {
-    FlutterError.onError = onError;
-    ErrorWidget.builder = builder;
-  };
-}
-
-/// A widget which captures exceptions throws when building any of its descendants.
-///
-/// For [Boundary] to work, it is necessary to call [setupBoundary] first,
-/// usually inside the `main` method.
 class Boundary extends StatelessWidget {
   /// [fallbackBuilder] and [child] must not be `null`.
   const Boundary({
@@ -86,10 +81,10 @@ class Boundary extends StatelessWidget {
   }
 }
 
-class _Fallback extends StatelessWidget {
-  _Fallback(this.details);
+class Defer extends StatelessWidget {
+  Defer(this.details);
 
-  final FlutterErrorDetails details;
+  final Object details;
 
   @override
   _FallbackElement createElement() => _FallbackElement(this);
@@ -99,10 +94,10 @@ class _Fallback extends StatelessWidget {
 }
 
 class _FallbackElement extends StatelessElement {
-  _FallbackElement(_Fallback widget) : super(widget);
+  _FallbackElement(Defer widget) : super(widget);
 
   @override
-  _Fallback get widget => super.widget as _Fallback;
+  Defer get widget => super.widget as Defer;
 
   _BoundaryElement boundary;
   _BoundaryElement didCatch;
@@ -114,13 +109,18 @@ class _FallbackElement extends StatelessElement {
     boundary = _InheritedBoundary.of(this);
     if (boundary != null) {
       boundary.markSubtreeFailed(widget.details);
+    } else {
+      FlutterError.reportError(FlutterErrorDetails(
+        library: 'boundary',
+        exception: BoundaryNotFoundError(widget.details.runtimeType),
+      ));
     }
     return res;
   }
 
   @override
   void deactivate() {
-    if (boundary.activated) {
+    if (boundary?.activated == true) {
       boundary.markSubtreeFailed(null);
     }
     super.deactivate();
@@ -180,7 +180,7 @@ class _BoundaryElement extends StatelessElement {
   @override
   Boundary get widget => super.widget as Boundary;
 
-  FlutterErrorDetails failure;
+  Object failure;
   bool isBuilding = false;
   bool activated = false;
   dynamic exception;
@@ -205,7 +205,7 @@ class _BoundaryElement extends StatelessElement {
     isBuilding = false;
     final hasError = failure != null;
     if (hasError != hadError) {
-      exception = failure?.exception;
+      exception = failure;
       rebuildWithError(exception);
     }
   }
@@ -228,9 +228,9 @@ class _BoundaryElement extends StatelessElement {
     super.deactivate();
   }
 
-  void markSubtreeFailed(FlutterErrorDetails failure) {
+  void markSubtreeFailed(Object failure) {
     this.failure = failure;
-    exception = failure?.exception;
+    exception = failure;
     if (!isBuilding) {
       rebuildWithError(exception);
     }

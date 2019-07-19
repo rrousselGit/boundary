@@ -5,8 +5,8 @@ class NotFoundError extends Error {
   NotFoundError() : super();
 }
 
-class Loading extends Error {
-  Loading() : super();
+class Loading {
+  const Loading();
 }
 
 class Menu extends StatelessWidget {

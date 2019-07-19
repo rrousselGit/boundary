@@ -56,11 +56,8 @@ class __FutureExampleState extends State<_FutureExample> {
     return FutureBuilder<String>(
       future: future,
       builder: (_, snapshot) {
-        if (snapshot.hasError) {
-          // ignore: only_throw_errors
-          throw snapshot.error;
-        }
-        if (!snapshot.hasData) throw Loading();
+        if (snapshot.hasError) return Defer(snapshot.error);
+        if (!snapshot.hasData) return Defer(const Loading());
 
         return Text(snapshot.data);
       },
