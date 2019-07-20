@@ -326,19 +326,15 @@ void main() {
   });
   testWidgets('Defer without a Boundary in its ancestors report an error',
       (tester) async {
-    final onError = MockFlutterError();
-    final restore = mockErrorHandlers(onError: onError);
-
     await tester.pumpWidget(Defer(42));
 
-    restore();
-
+    // ignore: omit_local_variable_types
     final dynamic exception = tester.takeException();
 
     expect(exception, isInstanceOf<BoundaryNotFoundError>());
     expect(exception.toString(), equals('''
-    Error: No Boundary<int> found.   
-    '''));
+Error: No Boundary<int> found.
+'''));
   });
   testWidgets("child doesn't rebuild if didn't change and no error",
       (tester) async {

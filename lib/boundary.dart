@@ -81,9 +81,13 @@ class Boundary extends StatelessWidget {
   }
 }
 
+/// A widget that asks the nearest [Boundary] in its ancestors to call
+/// [Boundary.fallbackBuilder].
 class Defer extends StatelessWidget {
-  Defer(this.details);
+  /// Allows specifying [details].
+  Defer(this.details, {Key key}) : super(key: key);
 
+  /// The object that will be passed as parameter to [Boundary.fallbackBuilder].
   final Object details;
 
   @override
@@ -107,13 +111,13 @@ class _FallbackElement extends StatelessElement {
     final res = super.updateChild(child, newWidget, newSlot);
 
     boundary = _InheritedBoundary.of(this);
-    if (boundary != null) {
-      boundary.markSubtreeFailed(widget.details);
-    } else {
+    if (boundary == null) {
       FlutterError.reportError(FlutterErrorDetails(
         library: 'boundary',
         exception: BoundaryNotFoundError(widget.details.runtimeType),
       ));
+    } else {
+      boundary.markSubtreeFailed(widget.details);
     }
     return res;
   }

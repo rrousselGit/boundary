@@ -5,50 +5,16 @@
 
 # Boundary
 
-Boundary is a new widget for Flutter that takes over `FlutterError.onError` and
+Boundary is a set of widgets that takes over `FlutterError.onError` and
 `ErrorWidget.builder` to make them composable and scoped.
 
-If you ever wanted to have your error reporting applied only a specific part of
-your widget tree, or if you found difficult to implement an "Oops"/Loading
-screen, then this library is for you.
-
-## Installation
-
-For `Boundary` to work, it is necessary to call `setupBoundary` first.
-
-This can be done inside your `main` function like so:
-
-```dart
-void main() {
-  setupBoundary();
-  runApp(MyApp());
-}
-```
-
-For tests purpose, `setupBoundary` returns a function to revert the settings
-to their default behavior:
-
-```dart
-testWidgets('mytest', (tester) async {
-  final restore = setupBoundary();
-
-  await tester.pumpWidget(
-    Boundary(
-      fallback: (_, __) => Container(),
-      child: Text('foo', textDirection: TextDirection.ltr),
-    )
-  );
-
-  // necessary call before any `expect`, otherwise the test framework will throw
-  restore();
-
-  expect(find.text('foo'), findsOneWidget);
-});
-```
+If you found difficult to implement an "Oops"/Loading" screen or want
+explicit error reporting for only a specific subtree, then this library is
+for you.
 
 ## Principle
 
-Error reporting and fallback UI are now represented through one universal widget:
+Fallback UI are represented through one universal widget:
 
 `Boundary`
 
@@ -68,8 +34,8 @@ Scaffold(
       color: Colors.red,
       padding: const EdgeInsets.all(50),
       child: Builder(builder: (_) {
-        // a descendant somethow failed
-        throw 42;
+        // a descendant somethow wants to abort the build
+        return Defer(42);
       }),
     ),
   ),
@@ -88,9 +54,10 @@ The widget returned by `fallbackBuilder` is in an entirely different widget tree
 But the failing subtree (Container -> Builder) is not removed for the tree either!
 Its state is preserved and it is simply offstaged, until it rebuilds successfuly.
 
-This is proved by the [following example](https://github.com/rrousselGit/boundary/blob/master/example/lib/future_builder.dart), which shows how `Boundary` can be used
-to show a loading/error screen from a `FutureBuilder` deeper in the widget tree
-– without having a reference on the `Future`.
+This is proved by the [following example](https://github.com/rrousselGit/boundary/blob/master/example/lib/future_builder.dart),
+which shows how `Boundary` can be used to show a loading/error screen from a
+`FutureBuilder` deeper in the widget tree – without having a reference on
+the `Future`.
 
 ```dart
 Boundary(
@@ -132,10 +99,10 @@ Boundary(
   child: Boundary(
     fallbackBuilder: (_, err) {
       print(err);
-      throw err;
+      return Defer(err);
     },
     child: Builder(builder: (_) {
-      throw 42;
+      return Defer(42);
     })
   )
 )
