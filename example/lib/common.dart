@@ -63,7 +63,7 @@ class NotFoundScreen extends StatelessWidget {
     return Center(
       child: Column(
         children: <Widget>[
-          Text('Not found', style: Theme.of(context).textTheme.headline),
+          Text('Not found', style: Theme.of(context).textTheme.headline5),
           const Text("There's nothing to see here"),
         ],
       ),
@@ -76,8 +76,8 @@ class OopsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: const Text('Oops, something unexpected happened'),
+    return const Center(
+      child: Text('Oops, something unexpected happened'),
     );
   }
 }

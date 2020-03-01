@@ -27,7 +27,7 @@ class _InheritedBoundary extends InheritedWidget {
 
   static _BoundaryElement of(BuildContext context) {
     var widget = context
-        .ancestorInheritedElementForWidgetOfExactType(_InheritedBoundary)
+        .getElementForInheritedWidgetOfExactType<_InheritedBoundary>()
         ?.widget;
 
     if (widget is _InheritedBoundary) {
