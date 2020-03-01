@@ -44,6 +44,7 @@ class _InheritedBoundary extends InheritedWidget {
   }
 }
 
+/// Defines a fallback behavior for [Defer] widget used inside `child`.
 class Boundary extends StatelessWidget {
   /// [fallbackBuilder] and [child] must not be `null`.
   const Boundary({
