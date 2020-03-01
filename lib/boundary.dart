@@ -170,6 +170,7 @@ class _Internal extends StatelessWidget {
     return _InheritedBoundary(
       element: element,
       child: Stack(
+        fit: StackFit.passthrough,
         alignment: Alignment.center,
         children: element.errorWidget != null
             ? [valid, element.errorWidget]
