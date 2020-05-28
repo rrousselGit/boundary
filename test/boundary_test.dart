@@ -360,6 +360,32 @@ Error: No Boundary<int> found.
 
     expect(buildCount, equals(1));
   });
+  testWidgets('Boundary children are provided their constraints unmodified',
+      (tester) async {
+    final expectedConstraints = const BoxConstraints(
+      minWidth: 50,
+      maxWidth: 100,
+      minHeight: 25,
+      maxHeight: 60,
+    );
+
+    BoxConstraints actualConstraints;
+    await tester.pumpWidget(
+      UnconstrainedBox( // To ignore tester's constraints
+        child: ConstrainedBox(
+          constraints: expectedConstraints,
+          child: Boundary(
+            fallbackBuilder: (_, dynamic __) => null,
+            child: LayoutBuilder(builder: (_, constraints) {
+              actualConstraints = constraints;
+              return const SizedBox();
+            }),
+          ),
+        ),
+      ),
+    );
+    expect(actualConstraints, equals(expectedConstraints));
+  });
 }
 
 class BuilderMock extends Mock {
