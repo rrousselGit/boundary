@@ -360,8 +360,7 @@ Error: No Boundary<int> found.
 
     expect(buildCount, equals(1));
   });
-  testWidgets('Boundary children are provided their constraints unmodified',
-      (tester) async {
+  testWidgets('child is provided its constraints unmodified', (tester) async {
     final expectedConstraints = const BoxConstraints(
       minWidth: 50,
       maxWidth: 100,
@@ -371,7 +370,8 @@ Error: No Boundary<int> found.
 
     BoxConstraints actualConstraints;
     await tester.pumpWidget(
-      UnconstrainedBox( // To ignore tester's constraints
+      // UnconstrainedBox to ignore tester's constraints
+      UnconstrainedBox(
         child: ConstrainedBox(
           constraints: expectedConstraints,
           child: Boundary(
